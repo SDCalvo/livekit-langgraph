@@ -2,6 +2,9 @@
 from typing_extensions import TypedDict
 from langgraph.graph import StateGraph, START, END
 from langgraph.graph.message import add_messages
+from langchain_core.messages import HumanMessage, AIMessage
+from langchain.prompts import ChatPromptTemplate
+from langchain_openai import ChatOpenAI
 from _langgraph.graph_factory import LangGraphFactory
 
 # Define the state schema. Here we use a simple message list.
@@ -9,9 +12,6 @@ class State(TypedDict):
     messages: list  # Optionally, you can annotate with add_messages
 
 def build_simple_graph(graph: StateGraph) -> None:
-    from langchain_core.messages import HumanMessage, AIMessage
-    from langchain.prompts import ChatPromptTemplate
-    from langchain_openai import ChatOpenAI
 
     # Set up a prompt template for the conversation.
     prompt = ChatPromptTemplate.from_messages(

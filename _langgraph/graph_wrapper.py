@@ -39,7 +39,7 @@ class GraphStream(llm.LLMStream):
         config = {"configurable": {"thread_id": "1"}}
         self._stream = graph.astream({
             "messages": messages
-        }, config=config)
+        }, config=config, stream_mode="messages")
 
     async def _run(self) -> None:
         """
@@ -51,18 +51,16 @@ class GraphStream(llm.LLMStream):
         async for update in self._stream:
             logger.info(f"Chunk update: {update}")
             index += 1
-            if update["llm_node"]["messages"]:
+            if update[0].content:
                 # Retrieve the last message.
-                last_msg = update["llm_node"]["messages"][-1]
-                # If the message object has a 'content' attribute and it's non-empty, wrap it.
-                if hasattr(last_msg, "content") and last_msg.content:
-                    return llm.ChatChunk(
-                        request_id=index,
-                        choices=[
-                            llm.Choice(
-                                delta=llm.ChoiceDelta(content=last_msg.content, role="assistant"),
-                                index=index,
-                            )
-                        ]
-                    )
+                last_msg = update[0].content
+                return llm.ChatChunk(
+                    request_id=index,
+                    choices=[
+                        llm.Choice(
+                            delta=llm.ChoiceDelta(content=last_msg, role="assistant"),
+                            index=index,
+                        )
+                    ]
+                )
         raise StopAsyncIteration
