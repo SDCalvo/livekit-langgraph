@@ -1,9 +1,11 @@
-# graph_wrapper.py
 from __future__ import annotations
-from typing import Any
+from time import time
+from typing import Any, Dict
 from livekit.agents import llm
+from langchain_core.messages import BaseMessage, HumanMessage, AIMessage
 from langgraph.graph.state import CompiledGraph
 from livekit.agents.llm.llm import APIConnectOptions
+from livekit.agents.llm.chat_context import ChatMessage
 import logging
 
 logger = logging.getLogger(__name__)
@@ -16,12 +18,13 @@ class LivekitGraphRunner(llm.LLM):
     Args:
         graph (CompiledGraph): The compiled graph to be used.
     """
-    def __init__(self, graph: CompiledGraph) -> None:
+    def __init__(self, graph: CompiledGraph, initial_state: Dict[str, Any] = None) -> None:
         """
         Initializes the LiveKit wrapper.
         """
         super().__init__()  # Initializes base attributes (e.g., _events)
         self.graph = graph
+        self.initial_state = initial_state or {}
 
     def chat(
         self, *, chat_ctx: llm.ChatContext, **kwargs: Any
@@ -36,7 +39,7 @@ class LivekitGraphRunner(llm.LLM):
             GraphStream: The new GraphStream instance.
         """
         # Pass self as the LLM so that _llm is not None.
-        return GraphStream(llm=self, graph=self.graph, chat_ctx=chat_ctx)
+        return GraphStream(llm=self, graph=self.graph, chat_ctx=chat_ctx, initial_state=self.initial_state)
 
 # GraphStream implementation, fulfilling the _run abstract method.
 class GraphStream(llm.LLMStream):
@@ -51,7 +54,7 @@ class GraphStream(llm.LLMStream):
     Attributes:
         _stream (AsyncIterator): The stream that processes the chat context.
     """
-    def __init__(self, *, llm: llm.LLM, graph: CompiledGraph, chat_ctx: llm.ChatContext) -> None:
+    def __init__(self, *, llm: llm.LLM, graph: CompiledGraph, chat_ctx: llm.ChatContext, initial_state: Dict[str, Any]) -> None:
         """
         Initializes the GraphStream.
         """
@@ -63,12 +66,15 @@ class GraphStream(llm.LLMStream):
         )
         # Pass the LLM instance (from LivekitGraphRunner) so _label is available.
         super().__init__(llm=llm, chat_ctx=chat_ctx, fnc_ctx=None, conn_options=default_conn_options)
-        # Convert LiveKit ChatContext messages (skip the system message) into a list of (role, content) pairs.
-        messages = [(m.role, m.content) for m in chat_ctx.messages[1:]]
+        # Convert to base messages.
+        base_messages = [chat_message_to_base_message(m) for m in chat_ctx.messages]
+        # Extract messages from the chat context.
         config = {"configurable": {"thread_id": "1"}}
-        self._stream = graph.astream({
-            "messages": messages
-        }, config=config, stream_mode="messages") # Stream mode is "messages" for now, if changed to "updates" the interface of __anext__ should change. 
+
+        # Add messages to initial state.
+        initial_state["messages"] = base_messages
+
+        self._stream = graph.astream(initial_state, config=config, stream_mode="messages") # Stream mode is "messages" for now, if changed to "updates" the interface of __anext__ should change. 
         # Instead of update[0].content, it should be update["node_name"]["messages"][-1]["content"] or something like that, I can't remember exactly, but just print a chunk to see the structure.
 
     async def _run(self) -> None:
@@ -110,3 +116,34 @@ class GraphStream(llm.LLMStream):
                     ]
                 )
         raise StopAsyncIteration
+
+def chat_message_to_base_message(chat_msg: ChatMessage) -> BaseMessage:
+    """
+    Convert a LiveKit ChatMessage into a LangChain BaseMessage.
+    We map:
+      - chat_msg.message -> BaseMessage.content
+      - chat_msg.participant -> stored in BaseMessage.additional_kwargs
+      - and set type="chat" (or another suitable value)
+    """
+    logger.info(f"Chat message: {chat_msg}")
+    if chat_msg.role == "assistant":
+        return AIMessage(
+            content=chat_msg.content,
+        )
+    return HumanMessage(
+        content=chat_msg.content,
+    )
+
+def base_message_to_chat_message(base_msg: BaseMessage) -> ChatMessage:
+    """
+    Convert a LangChain BaseMessage into a LiveKit ChatMessage.
+    We map:
+      - BaseMessage.content -> ChatMessage.message
+      - BaseMessage.id -> ChatMessage.timestamp (converted to int if possible)
+      - BaseMessage.additional_kwargs.get("participant") -> ChatMessage.participant
+    """
+    return ChatMessage(
+        message=base_msg.content,
+        timestamp=int(base_msg.id),
+        role="assistant" if isinstance(base_msg, AIMessage) else "user",
+    )

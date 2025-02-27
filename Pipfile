@@ -15,6 +15,7 @@ langchain = "==0.3.19"
 langchain-openai = "==0.3.7"
 langgraph = "==0.2.74"
 dotenv = "*"
+httpx = "*"
 
 [dev-packages]
 

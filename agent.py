@@ -1,6 +1,8 @@
 # agent.py
 import logging
 from dotenv import load_dotenv
+load_dotenv(dotenv_path=".env.local")
+
 from livekit.agents import (
     AutoSubscribe,
     JobContext,
@@ -12,9 +14,8 @@ from livekit.agents import (
 from livekit.agents.pipeline import VoicePipelineAgent
 from livekit.plugins import cartesia, deepgram, silero, turn_detector
 from _langgraph.graph_wrapper import LivekitGraphRunner  # our wrapper that adapts a compiled graph to LiveKit
-from _langgraph.simple_graph import get_compiled_graph  # Import the compiled graph from simple_graph.py
+from _langgraph.graphs.tools_graph import get_compiled_graph
 
-load_dotenv(dotenv_path=".env.local")
 logger = logging.getLogger("voice-agent")
 
 def prewarm(proc: JobProcess):
@@ -53,8 +54,8 @@ async def entrypoint(ctx: JobContext):
 
     # Get the compiled graph and create a LiveKitGraphRunner instance, this instance is the one responsible for running the graph.
     # The LiveKitGraphRunner is a wrapper that adapts a compiled graph from LangGraph to be compliant with LiveKit's LLM interface.
-    compiled_graph = await get_compiled_graph()
-    graph_runner = LivekitGraphRunner(compiled_graph)
+    compiled_graph, initial_state = await get_compiled_graph()
+    graph_runner = LivekitGraphRunner(compiled_graph, initial_state)
     
     agent = VoicePipelineAgent(
         vad=ctx.proc.userdata["vad"],
