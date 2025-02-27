@@ -11,7 +11,6 @@ from livekit.agents import (
 )
 from livekit.agents.pipeline import VoicePipelineAgent
 from livekit.plugins import cartesia, deepgram, silero, turn_detector
-from livekit.agents import llm
 from _langgraph.graph_wrapper import LivekitGraphRunner  # our wrapper that adapts a compiled graph to LiveKit
 from _langgraph.simple_graph import get_compiled_graph  # Import the compiled graph from simple_graph.py
 
