@@ -1,6 +1,7 @@
 from pydantic import BaseModel, Field
-from typing import Dict, List, Any
-from langchain_core.messages import BaseMessage
+from typing import Dict, List, Any, Union, Annotated
+from langchain_core.messages import BaseMessage, AIMessage, HumanMessage, ToolMessage, SystemMessage
+from langgraph.graph.message import add_messages
 
 class NodeMetadata(BaseModel):
     """
@@ -14,7 +15,7 @@ class BaseState(BaseModel):
     """
     Base state for the workflow. It holds conversation messages and a registry of node metadata.
     """
-    messages: List[BaseMessage] = Field(default_factory=list, description="List of messages in the conversation.")
+    messages: Annotated[List[Union[BaseMessage, AIMessage, HumanMessage, ToolMessage, SystemMessage]], add_messages] = Field(default_factory=list, description="List of conversation messages.")
     node_registry: Dict[str, NodeMetadata] = Field(default_factory=dict, description="Mapping of node names to their metadata.")
     context: Dict[str, Any] = Field(default_factory=dict, description="Additional state context.")
 

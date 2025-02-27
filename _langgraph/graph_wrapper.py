@@ -2,7 +2,7 @@ from __future__ import annotations
 from time import time
 from typing import Any, Dict
 from livekit.agents import llm
-from langchain_core.messages import BaseMessage, HumanMessage, AIMessage
+from langchain_core.messages import BaseMessage, HumanMessage, AIMessage, ToolMessage
 from langgraph.graph.state import CompiledGraph
 from livekit.agents.llm.llm import APIConnectOptions
 from livekit.agents.llm.chat_context import ChatMessage
@@ -103,6 +103,8 @@ class GraphStream(llm.LLMStream):
         """
         index = 0
         async for chunk in self._stream:
+            if isinstance(chunk[0], ToolMessage):
+                continue
             index += 1
             if chunk[0].content:
                 # Retrieve the last message.
@@ -125,7 +127,6 @@ def chat_message_to_base_message(chat_msg: ChatMessage) -> BaseMessage:
       - chat_msg.participant -> stored in BaseMessage.additional_kwargs
       - and set type="chat" (or another suitable value)
     """
-    logger.info(f"Chat message: {chat_msg}")
     if chat_msg.role == "assistant":
         return AIMessage(
             content=chat_msg.content,

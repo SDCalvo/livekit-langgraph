@@ -1,8 +1,13 @@
-from typing import Dict, Any, List
-from langchain_core.messages import HumanMessage, AIMessage, SystemMessage
+from typing import Callable, Dict, Any, List, Optional, Union
+from langchain_core.messages import SystemMessage
 from langchain_openai import ChatOpenAI
+from langchain_core.tools import BaseTool
+from langchain_core.runnables import Runnable
 from _langgraph.nodes.base_node import BaseNode
 from _langgraph.base_state import BaseState
+import logging
+
+logger = logging.getLogger(__name__)
 
 class LLMNode(BaseNode):
     """
@@ -10,7 +15,7 @@ class LLMNode(BaseNode):
     The node now receives a model and a list of tools so that it can bind the tools to the model.
     """
     model: ChatOpenAI
-    tools: List[Any] = []  # list of tool functions decorated with @tool
+    tools: Optional[List[Callable[[Union[Callable, Runnable]], BaseTool]]] = None
 
     async def run(self, state: BaseState) -> Dict[str, Any]:
         messages = state.messages
@@ -18,17 +23,15 @@ class LLMNode(BaseNode):
         # Build the prompt template.
         system_prompt = SystemMessage(content="You are a helpful assistant.")
         messages = [system_prompt] + messages
-        
+        model = self.model
         # Bind tools to the model.
-        model_with_tools = self.model.bind_tools(self.tools)
+        if self.tools:
+            model = self.model.bind_tools(self.tools)
         
         # Asynchronously invoke the chain.
-        result = await model_with_tools.ainvoke(messages)
+        result = await model.ainvoke(messages)
         
-        # Append the LLM response as an AIMessage.
-        new_message = AIMessage(content=result.content)
-        
-        return {"messages": [new_message]}
+        return {"messages": [result]}
 
 # When instantiating the node, pass in the model and the list of tools.
 llm_node = LLMNode(

@@ -26,8 +26,6 @@ def build_simple_graph(graph: StateGraph) -> None:
 
     # Configure a real LLM instance.
     llm = ChatOpenAI(temperature=0.7, model="gpt-4o-mini", streaming=True)
-    # Chain the prompt with the LLM.
-    
 
     async def llm_node(state: State) -> State:
         """
@@ -40,7 +38,6 @@ def build_simple_graph(graph: StateGraph) -> None:
             State: The updated state.
         """
         messages = state["messages"]
-        # Ensure you’re invoking the chain (prompt | model) asynchronously.
         result = await llm.ainvoke(messages)
         return {"messages": [result]}
 
@@ -59,4 +56,8 @@ async def get_compiled_graph() -> CompiledStateGraph:
     Returns:
         CompiledStateGraph: The compiled graph.
     """
-    return await factory.create_graph(build_simple_graph)
+    compiled_graph = await factory.create_graph(build_simple_graph)
+    initial_state = {
+        "messages": []
+    }
+    return compiled_graph, initial_state
