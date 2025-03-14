@@ -2,7 +2,7 @@
   <img src="./.github/assets/livekit-mark.png" alt="LiveKit logo" width="100" height="100">
 </a>
 
-# Python Voice Agent
+Custom langgraph wrapper to run langraph inside livekit agents framework.
 
 <p>
   <a href="https://cloud.livekit.io/projects/p_/sandbox"><strong>Deploy a sandbox app</strong></a>
